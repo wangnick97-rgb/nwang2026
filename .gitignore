@@ -1,0 +1,4 @@
+trends.txt
+cron.log
+__pycache__/
+*.pyc
