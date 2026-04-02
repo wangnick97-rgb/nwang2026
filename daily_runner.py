@@ -29,11 +29,11 @@ def main():
     # Always run trend discovery
     run("ai_trends.py")
 
-    # Run video pipeline every other day (even days)
+    # Run mindset pipeline every other day (even days)
     if day_of_year % 2 == 0:
-        run("video_pipeline.py")
+        run("mindset_pipeline.py")
     else:
-        print("\n[SKIP] video_pipeline.py — not scheduled today (runs every other day)")
+        print("\n[SKIP] mindset_pipeline.py — not scheduled today (runs every other day)")
 
 
 if __name__ == "__main__":
