@@ -293,55 +293,55 @@ def deduplicate(items: list[dict]) -> list[dict]:
 
 INSIGHT_TEMPLATES = {
     # 职业/就业冲击
-    "job":        "打工人注意了！AI 正在悄悄接管这个岗位——{title}，你的工作还安全吗？",
-    "replace":    "又一个职业被盯上了。{title}——如果连这个都能被替代，我们还能靠什么赚钱？",
-    "layoff":     "裁员潮来了？{title}——AI 时代，第一批失业的往往是这类人。",
-    "fired":      "这不是段子，是真实发生的事：{title}。你所在的行业还有多久？",
+    "job":        "就在刚刚，AI 抢饭碗的新闻在硅谷引起了轰动——{title}。打工人注意了，你的工作还安全吗？",
+    "replace":    "就在刚刚，AI 取代人类的事又发生了——{title}。如果连这个都能被替代，我们还能靠什么赚钱？",
+    "layoff":     "硅谷震动！AI 引发的裁员潮正式开始——{title}。AI 时代，第一批失业的往往是这类人。",
+    "fired":      "刚刚曝光！这不是段子，是真实发生的事——{title}。你所在的行业还有多久？",
     # 钱/投资/商业机会
-    "funding":    "资本在押注什么？{title}——读懂这笔钱的方向，普通人也能找到下一个风口。",
-    "billion":    "又是百亿美元级别的动作。{title}——AI 的钱都流向哪了？跟着钱走准没错。",
-    "ipo":        "AI 独角兽要上市了！{title}——这波红利，普通人怎么蹭到？",
-    "invest":     "聪明钱已经下场了。{title}——不懂 AI 投资逻辑，可能真的会错过这个时代。",
-    "revenue":    "AI 开始真正赚钱了。{title}——这才是这波浪潮最值得关注的信号。",
+    "funding":    "就在刚刚，硅谷又一笔巨额 AI 投资引发轰动——{title}。读懂这笔钱的方向，普通人也能找到下一个风口。",
+    "billion":    "全球 AI 圈都炸了！又是百亿美元级别的大动作——{title}。AI 的钱都流向哪了？跟着钱走准没错。",
+    "ipo":        "重磅！AI 独角兽要上市了，硅谷沸腾——{title}。这波红利，普通人怎么蹭到？",
+    "invest":     "就在刚刚，聪明钱已经下场了——{title}。不懂 AI 投资逻辑，可能真的会错过这个时代。",
+    "revenue":    "硅谷震惊！AI 开始真正赚钱了——{title}。这才是这波浪潮最值得关注的信号。",
     # 隐私/安全/信任危机
-    "ad":         "震惊！{title}——你以为在用工具，工具其实在用你做广告。",
-    "inject":     "这已经不是 bug，是赤裸裸的商业操控：{title}。用 AI 工具的人都该看看。",
-    "hack":       "你的数据安全吗？{title}——AI 时代的安全漏洞，受害的是每一个普通用户。",
-    "breach":     "又泄露了。{title}——用 AI 产品之前，你知道它在收集什么吗？",
-    "privacy":    "隐私正在消失。{title}——在你不知情的情况下，AI 已经看了多少？",
-    "deepfake":   "你看到的可能是假的。{title}——AI 换脸、伪造声音，普通人该怎么辨别？",
+    "ad":         "刚刚曝光！这条新闻在硅谷引发轩然大波——{title}。你以为在用工具，工具其实在用你做广告。",
+    "inject":     "全网炸了！这已经不是 bug，是赤裸裸的商业操控——{title}。用 AI 工具的人都该看看。",
+    "hack":       "就在刚刚，一场 AI 安全事件在硅谷引起了轰动——{title}。你的数据安全吗？",
+    "breach":     "重磅！又泄露了，这条消息让整个 AI 圈不安——{title}。用 AI 产品之前，你知道它在收集什么吗？",
+    "privacy":    "刚刚曝光！隐私正在消失，这件事让硅谷沉默了——{title}。在你不知情的情况下，AI 已经看了多少？",
+    "deepfake":   "就在刚刚，一条 AI 造假新闻在全球引发恐慌——{title}。你看到的可能是假的，普通人该怎么辨别？",
     # 监管/法律/政府
-    "ban":        "政府出手了！{title}——这次的监管，会直接影响你能用哪些 AI 产品。",
-    "lawsuit":    "开始打官司了。{title}——这场法律战的结果，将决定 AI 能走多远。",
-    "regulation": "AI 监管时代正式开启？{title}——规则变了，机会和风险都在重新分配。",
-    "illegal":    "有人踩红线了。{title}——AI 的边界在哪，这件事给了一个清晰的答案。",
+    "ban":        "重磅！政府出手了，这条新闻在硅谷引起了轰动——{title}。这次的监管，会直接影响你能用哪些 AI 产品。",
+    "lawsuit":    "就在刚刚，一场针对 AI 的世纪官司正式开打——{title}。这场法律战的结果，将决定 AI 能走多远。",
+    "regulation": "硅谷震动！AI 监管时代正式开启——{title}。规则变了，机会和风险都在重新分配。",
+    "illegal":    "刚刚曝光！有人踩红线了，AI 圈炸了——{title}。AI 的边界在哪，这件事给了一个清晰的答案。",
     # 免费/工具/生产力
-    "free":       "免费！{title}——以前要花大价钱的能力，现在人人都能用，行业洗牌开始了。",
-    "launch":     "新工具来了！{title}——先用上的人，效率可能直接碾压同行。",
-    "release":    "刚刚发布！{title}——这个工具值不值得上手，我们帮你先看了。",
+    "free":       "就在刚刚，一个免费 AI 工具的发布在硅谷引发轰动——{title}。以前要花大价钱的能力，现在人人都能用。",
+    "launch":     "重磅！新 AI 工具刚刚发布，全球用户疯狂涌入——{title}。先用上的人，效率可能直接碾压同行。",
+    "release":    "就在刚刚发布！这条消息让 AI 圈沸腾了——{title}。这个工具值不值得上手，你一定要看。",
     # 能力突破/超越人类
-    "beats":      "AI 又赢了。{title}——这次被超越的，是很多人引以为傲的技能。",
-    "surpass":    "人类又输了一局。{title}——但这不是坏事，关键是你怎么利用这个工具。",
-    "breakthrough": "真正的突破来了！{title}——这一次，可能不是炒作。",
-    "first":      "历史首次！{title}——第一个吃螃蟹的往往定义整个赛道。",
+    "beats":      "硅谷震惊！AI 再次打败人类，这次的消息在全球引发轰动——{title}。这次被超越的，是很多人引以为傲的技能。",
+    "surpass":    "就在刚刚，AI 超越人类的新纪录让全球哑口无言——{title}。关键是你怎么利用这个工具。",
+    "breakthrough": "重磅！真正的 AI 突破来了，硅谷炸了——{title}。这一次，可能不是炒作。",
+    "first":      "历史性时刻！这条新闻在硅谷引起了轰动——{title}。第一个吃螃蟹的往往定义整个赛道。",
     # 创意/内容/媒体
-    "artist":     "创作者们，AI 又来抢饭碗了。{title}——你的作品还值钱吗？",
-    "music":      "AI 作曲、AI 唱歌……{title}——音乐人的未来在哪里？",
-    "video":      "AI 已经能生成这样的视频了。{title}——做内容的人，压力越来越大了。",
-    "image":      "一键生图时代，谁还在付钱请设计师？{title}。",
+    "artist":     "就在刚刚，AI 抢创作者饭碗的新闻在全网炸了——{title}。你的作品还值钱吗？",
+    "music":      "硅谷震动！AI 作曲、AI 唱歌的新进展引发轰动——{title}。音乐人的未来在哪里？",
+    "video":      "就在刚刚，AI 生成视频的能力再次让全球惊掉下巴——{title}。做内容的人，压力越来越大了。",
+    "image":      "重磅！AI 生图的新突破在硅谷引发轰动——{title}。一键生图时代，谁还在付钱请设计师？",
     # 中美竞争
-    "china":      "中美 AI 战争升级！{title}——这场科技博弈的输赢，会影响每个普通人的生活。",
-    "chinese":    "中国 AI 又有大动作。{title}——这次的进展，连硅谷都开始紧张了。",
+    "china":      "就在刚刚，中美 AI 战争升级的消息在硅谷引起了轰动——{title}。这场科技博弈的输赢，会影响每个普通人的生活。",
+    "chinese":    "硅谷紧张了！中国 AI 的大动作让全球沸腾——{title}。这次的进展，连硅谷都开始害怕了。",
     # OpenAI/大厂动态
-    "openai":     "OpenAI 又整活了。{title}——这家公司每次动作，都在重新定义 AI 的边界。",
-    "google":     "谷歌出手了。{title}——科技巨头的每一步棋，都在提前布局你的未来。",
-    "microsoft":  "微软又赢了？{title}——这家公司把 AI 嵌进每个产品，没人能绕开它。",
-    "meta":       "Meta 在 AI 上的野心比你想象的大。{title}——扎克伯格到底在下什么棋？",
-    "nvidia":     "英伟达又涨了？{title}——AI 时代，卖铲子的比挖矿的更赚钱。",
-    "apple":      "苹果终于动了！{title}——一旦苹果认真做 AI，游戏规则就变了。",
+    "openai":     "就在刚刚，OpenAI 的新动作在硅谷引起了轰动——{title}。这家公司每次出手，都在重新定义 AI 的边界。",
+    "google":     "重磅！谷歌出手了，这条消息让整个 AI 圈炸了——{title}。科技巨头的每一步棋，都在提前布局你的未来。",
+    "microsoft":  "就在刚刚，微软的 AI 新动作在硅谷引发轰动——{title}。这家公司把 AI 嵌进每个产品，没人能绕开它。",
+    "meta":       "硅谷震动！Meta 的 AI 野心再次曝光，全网炸了——{title}。扎克伯格到底在下什么棋？",
+    "nvidia":     "重磅！英伟达的新动作让 AI 圈沸腾——{title}。AI 时代，卖铲子的比挖矿的更赚钱。",
+    "apple":      "就在刚刚，苹果 AI 的大动作在硅谷引起了轰动——{title}。一旦苹果认真做 AI，游戏规则就变了。",
 }
 
-DEFAULT_INSIGHT = "AI 正在以你看不见的速度改变这个世界——这条新闻，值得每个普通人花 30 秒了解。"
+DEFAULT_INSIGHT = "就在刚刚，一条 AI 新闻在硅谷引起了轰动——这件事正在以你看不见的速度改变这个世界，值得每个普通人花 30 秒了解。"
 
 
 def generate_insight(item: dict) -> str:
@@ -394,16 +394,16 @@ def main():
     all_items.sort(key=lambda x: x["score"], reverse=True)
     unique_items = deduplicate(all_items)
 
-    # Take top 5
-    top5 = unique_items[:5]
+    # Take top 2 — most viral + most accessible for Chinese social media audience
+    top2 = unique_items[:2]
 
-    if not top5:
+    if not top2:
         print("No qualifying AI trends found in the last 24 hours.", file=sys.stderr)
         sys.exit(1)
 
     # Build output — one trend per line
     lines = []
-    for item in top5:
+    for item in top2:
         insight = generate_insight(item)
         lines.append(f"Title: {item['title']} || Insight: {insight} || Link: {item['link']}")
 
@@ -412,7 +412,7 @@ def main():
     with open(os.path.join(SCRIPT_DIR, "trends.txt"), "w", encoding="utf-8") as f:
         f.write(output + "\n")
 
-    print(f"\nSaved {len(top5)} trends to trends.txt\n")
+    print(f"\nSaved {len(top2)} trends to trends.txt\n")
     print("=" * 60)
     print(output)
     print("=" * 60)
@@ -423,7 +423,7 @@ def main():
         return
 
     print("\nSending to Zapier…")
-    for item in top5:
+    for item in top2:
         insight = generate_insight(item)
         payload = json.dumps({
             "title":   item["title"],
