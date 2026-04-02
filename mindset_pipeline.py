@@ -213,12 +213,9 @@ def generate_script(ai_trend: dict, theme: str) -> str:
 # Send to Zapier
 # ---------------------------------------------------------------------------
 
-def send_to_zapier(option_1: str, option_2: str):
+def send_to_zapier(script: str):
     payload = json.dumps({
-        "option_1":  option_1,
-        "option_2":  option_2,
-        "avatar_id": HEYGEN_AVATAR_ID,
-        "date":      datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "content": script,
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -279,8 +276,9 @@ def main():
         return
 
     print("\nSending to Zapier → HeyGen...")
-    status = send_to_zapier(script_1, script_2)
-    print(f"Done. Status: {status}")
+    for i, script in enumerate([script_1, script_2], 1):
+        status = send_to_zapier(script)
+        print(f"  [{status}] Script {i} sent")
 
 
 if __name__ == "__main__":
