@@ -30,22 +30,27 @@ def load_scripts():
         return json.load(f)
 
 # ---------------------------------------------------------------------------
-# Select today's script (rotates daily)
+# Select 2 scripts to offer as options (rotates every run)
 # ---------------------------------------------------------------------------
 
-def pick_script(scripts):
+def pick_two_scripts(scripts):
     day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
-    return scripts[day_of_year % len(scripts)]
+    n = len(scripts)
+    idx1 = day_of_year % n
+    idx2 = (day_of_year + 1) % n
+    return scripts[idx1], scripts[idx2]
 
 # ---------------------------------------------------------------------------
-# Send to Zapier
+# Send to Zapier — 2 options for manual selection
 # ---------------------------------------------------------------------------
 
-def send_to_zapier(script):
+def send_to_zapier(option_1, option_2):
     payload = json.dumps({
-        "script":    script,
+        "option_1":  option_1,
+        "option_2":  option_2,
         "avatar_id": HEYGEN_AVATAR_ID,
         "date":      datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "note":      "请选择其中一条脚本发给 HeyGen 生成视频",
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -65,11 +70,12 @@ def main():
     scripts = load_scripts()
     print(f"Loaded {len(scripts)} scripts.")
 
-    script = pick_script(scripts)
-    print(f"Today's script preview: {script[:80]}...")
+    option_1, option_2 = pick_two_scripts(scripts)
+    print(f"Option 1 preview: {option_1[:80]}...")
+    print(f"Option 2 preview: {option_2[:80]}...")
 
-    print("Sending to Zapier -> HeyGen...")
-    status = send_to_zapier(script)
+    print("Sending 2 options to Zapier for manual selection...")
+    status = send_to_zapier(option_1, option_2)
     print(f"Done. Status: {status}")
 
 if __name__ == "__main__":
