@@ -11,7 +11,9 @@ import json
 import sys
 import os
 import re
-from datetime import datetime, timezone
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -65,6 +67,82 @@ def fetch_reddit_mindset() -> list[dict]:
 
     # Sort by engagement: upvotes + comments weighted
     items.sort(key=lambda x: x["score"] + x["comments"] * 2, reverse=True)
+    return items
+
+
+# ---------------------------------------------------------------------------
+# X (Twitter) mindset / entrepreneur influencers via Nitter RSS
+# ---------------------------------------------------------------------------
+
+X_MINDSET_ACCOUNTS = [
+    ("SahilBloom",      "https://nitter.net/SahilBloom/rss"),
+    ("JamesClear",      "https://nitter.net/JamesClear/rss"),
+    ("AlexHormozi",     "https://nitter.net/AlexHormozi/rss"),
+    ("codie_sanchez",   "https://nitter.net/codie_sanchez/rss"),
+    ("thejustinwelsh",  "https://nitter.net/thejustinwelsh/rss"),
+    ("naval",           "https://nitter.net/naval/rss"),
+    ("Dan_Koe",         "https://nitter.net/Dan_Koe/rss"),
+]
+
+# Keywords that signal a mindset/growth post (not a promo or reply)
+MINDSET_KEYWORDS = [
+    "success", "fail", "habit", "discipline", "fear", "growth", "mindset",
+    "learn", "improve", "focus", "money", "wealth", "career", "job",
+    "hustle", "purpose", "goal", "mistake", "advice", "lesson", "truth",
+    "hard", "sacrifice", "grind", "consistency", "patience", "courage",
+    "regret", "risk", "confidence", "action", "lazy", "procrastinat",
+    "overthink", "comparison", "jealous", "anxiety", "identity", "value",
+    "invest", "build", "create", "change", "entrepreneur", "business",
+    "great", "best", "worst", "never", "always", "most people", "nobody",
+]
+
+
+def fetch_x_mindset() -> list[dict]:
+    """Fetch mindset/growth posts from influencer X accounts via Nitter RSS."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+    items = []
+    for account_name, feed_url in X_MINDSET_ACCOUNTS:
+        try:
+            req = urllib.request.Request(feed_url, headers=HEADERS)
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = resp.read()
+            if len(data) < 100:
+                continue
+            root = ET.fromstring(data)
+            for item_el in root.iter("item"):
+                title = (item_el.findtext("title") or "").strip()
+                link  = (item_el.findtext("link") or "").strip()
+                pub   = item_el.findtext("pubDate") or ""
+                desc  = (item_el.findtext("description") or "").strip()
+                desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
+                try:
+                    pub_dt = parsedate_to_datetime(pub)
+                except Exception:
+                    continue
+                if pub_dt < cutoff:
+                    continue
+                # Skip retweets
+                if title.lower().startswith("rt by @"):
+                    continue
+                # Skip very short posts (replies, one-liners)
+                if len(desc_clean) < 50:
+                    continue
+                # Must contain mindset-related keywords
+                combined = desc_clean.lower()
+                hits = sum(1 for kw in MINDSET_KEYWORDS if kw in combined)
+                if hits < 1:
+                    continue
+                items.append({
+                    "title":    desc_clean[:150].split("\n")[0],
+                    "text":     desc_clean[:400],
+                    "score":    hits * 50,  # normalize to be comparable with Reddit scores
+                    "comments": 0,
+                    "source":   f"X @{account_name}",
+                })
+        except Exception as e:
+            print(f"[WARN] X @{account_name} failed: {e}", file=sys.stderr)
+
+    items.sort(key=lambda x: x["score"], reverse=True)
     return items
 
 
@@ -233,9 +311,15 @@ def send_to_zapier(script: str):
 # ---------------------------------------------------------------------------
 
 def main():
-    print("Fetching trending mindset posts from Reddit...")
-    posts = fetch_reddit_mindset()
-    print(f"  Found {len(posts)} posts across {MINDSET_SUBREDDITS}")
+    print("Fetching trending mindset posts...")
+    reddit_posts = fetch_reddit_mindset()
+    print(f"  Reddit: {len(reddit_posts)} posts across {MINDSET_SUBREDDITS}")
+    x_posts = fetch_x_mindset()
+    print(f"  X:      {len(x_posts)} posts from influencer accounts")
+    # Merge and sort by engagement score
+    posts = reddit_posts + x_posts
+    posts.sort(key=lambda x: x["score"] + x["comments"] * 2, reverse=True)
+    print(f"  Total:  {len(posts)} mindset posts")
 
     print("Loading today's top AI trend...")
     ai_trend = load_top_ai_trend()
