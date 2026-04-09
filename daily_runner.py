@@ -33,7 +33,13 @@ def main():
     if day_of_year % 2 == 0:
         run("mindset_pipeline.py")
     else:
-        print("\n[SKIP] mindset_pipeline.py — not scheduled today (runs every other day)")
+        print("\n[SKIP] mindset_pipeline.py — not scheduled today (runs on even days)")
+
+    # Run fitness pipeline every other day (odd days — opposite of mindset)
+    if day_of_year % 2 == 1:
+        run("fitness_pipeline.py")
+    else:
+        print("\n[SKIP] fitness_pipeline.py — not scheduled today (runs on odd days)")
 
 
 if __name__ == "__main__":
