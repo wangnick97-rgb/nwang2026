@@ -587,16 +587,18 @@ def main():
     all_items.sort(key=lambda x: x["score"], reverse=True)
     unique_items = deduplicate(all_items)
 
-    # Take top 2 — most viral + most accessible for Chinese social media audience
-    top2 = unique_items[:2]
+    # Top 2 for Zapier, top 5 saved to trends.txt (3-5 reserved for mindset_pipeline)
+    top = unique_items[:5]
 
-    if not top2:
+    if len(top) < 2:
         print("No qualifying AI trends found in the last 24 hours.", file=sys.stderr)
         sys.exit(1)
 
-    # Build output — one trend per line
+    top2 = top[:2]
+
+    # Build output — one trend per line; lines 1-2 = sent to Zapier, lines 3+ = for mindset
     lines = []
-    for item in top2:
+    for item in top:
         insight = generate_insight(item)
         lines.append(f"Title: {item['title']} || Insight: {insight} || Link: {item['link']}")
 
@@ -605,7 +607,7 @@ def main():
     with open(os.path.join(SCRIPT_DIR, "trends.txt"), "w", encoding="utf-8") as f:
         f.write(output + "\n")
 
-    print(f"\nSaved {len(top2)} trends to trends.txt\n")
+    print(f"\nSaved {len(top)} trends to trends.txt (top 2 → Zapier, rest → mindset)\n")
     print("=" * 60)
     print(output)
     print("=" * 60)

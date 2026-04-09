@@ -110,12 +110,18 @@ def fetch_x_mindset() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def load_top_ai_trend() -> dict:
+    """Load an AI trend from trends.txt that was NOT already sent by ai_trends.py.
+    Lines 1-2 are already sent to Zapier by ai_trends; pick from line 3+ to avoid overlap.
+    Falls back to line 1 if fewer than 3 lines exist.
+    """
     path = os.path.join(SCRIPT_DIR, "trends.txt")
     try:
         with open(path, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-        title_match   = re.search(r"Title: (.+?) \|\| Insight:", first_line)
-        insight_match = re.search(r"Insight: (.+?) \|\| Link:", first_line)
+            all_lines = [l.strip() for l in f.readlines() if l.strip()]
+        # Skip first 2 lines (already sent by ai_trends), use line 3+
+        target_line = all_lines[2] if len(all_lines) > 2 else all_lines[0]
+        title_match   = re.search(r"Title: (.+?) \|\| Insight:", target_line)
+        insight_match = re.search(r"Insight: (.+?) \|\| Link:", target_line)
         return {
             "title":   title_match.group(1)   if title_match   else "AI 正在改变一切",
             "insight": insight_match.group(1) if insight_match else "",
