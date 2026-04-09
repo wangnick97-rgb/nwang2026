@@ -261,6 +261,219 @@ def fetch_producthunt() -> list[dict]:
     return items
 
 
+def fetch_theverge() -> list[dict]:
+    """The Verge AI — Atom feed."""
+    items = []
+    try:
+        data = fetch_url("https://www.theverge.com/rss/ai-artificial-intelligence/index.xml")
+        root = ET.fromstring(data)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        for entry in root.findall("atom:entry", ns):
+            title = (entry.findtext("atom:title", default="", namespaces=ns)).strip()
+            link_el = entry.find("atom:link[@rel='alternate']", ns)
+            link = link_el.get("href", "") if link_el is not None else ""
+            pub = entry.findtext("atom:published", default="", namespaces=ns)
+            summary = (entry.findtext("atom:content", default="", namespaces=ns) or
+                       entry.findtext("atom:summary", default="", namespaces=ns))
+            # Strip HTML tags from summary
+            summary = re.sub(r"<[^>]+>", "", summary).strip()
+            pub_dt = None
+            if pub:
+                try:
+                    pub_dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            if pub_dt and pub_dt < CUTOFF:
+                continue
+            if is_too_technical(title):
+                continue
+            items.append({
+                "title":  title,
+                "link":   link,
+                "source": "The Verge",
+                "score":  viral_score(title + " " + summary, 2),  # boost: major outlet
+                "text":   summary[:300],
+            })
+    except Exception as e:
+        print(f"[WARN] The Verge fetch failed: {e}", file=sys.stderr)
+    return items
+
+
+def fetch_ai_company_x() -> list[dict]:
+    """Fetch latest posts from major AI companies on X (via Nitter RSS).
+    Monitors: OpenAI, ChatGPT, Anthropic, Google AI, Google DeepMind.
+    Only keeps posts that announce something new (product, model, feature, update).
+    """
+    ACCOUNTS = [
+        ("OpenAI",        "https://nitter.net/OpenAI/rss"),
+        ("ChatGPT",       "https://nitter.net/ChatGPTapp/rss"),
+        ("Anthropic",     "https://nitter.net/AnthropicAI/rss"),
+        ("Google AI",     "https://nitter.net/GoogleAI/rss"),
+        ("Google DeepMind", "https://nitter.net/GoogleDeepMind/rss"),
+    ]
+    # Keywords that signal a real announcement (not just a retweet or thought piece)
+    ANNOUNCE_KEYWORDS = [
+        "introducing", "announcing", "launch", "released", "now available",
+        "rolling out", "new feature", "new model", "update", "upgrade",
+        "available today", "just shipped", "open source", "api", "access",
+        "gpt-", "claude", "gemini", "o1", "o3", "o4", "codex", "sora",
+        "dall-e", "chatgpt", "copilot", "agents", "tool use",
+    ]
+    items = []
+    for account_name, feed_url in ACCOUNTS:
+        try:
+            data = fetch_url(feed_url)
+            root = ET.fromstring(data)
+            for item_el in root.iter("item"):
+                title = (item_el.findtext("title") or "").strip()
+                link  = (item_el.findtext("link") or "").strip()
+                pub   = item_el.findtext("pubDate") or ""
+                desc  = (item_el.findtext("description") or "").strip()
+                # Strip HTML
+                desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
+                pub_dt = parse_date_rss(pub)
+                if pub_dt and pub_dt < CUTOFF:
+                    continue
+                # Skip retweets that are just "RT by @..." unless they contain announcement keywords
+                combined_text = (title + " " + desc_clean).lower()
+                is_rt = title.lower().startswith("rt by @")
+                # Must contain at least one announcement keyword
+                has_announce = any(kw in combined_text for kw in ANNOUNCE_KEYWORDS)
+                if not has_announce:
+                    continue
+                # Build a clean title: use first ~120 chars of desc for tweets
+                clean_title = desc_clean[:120].split("\n")[0]
+                if len(clean_title) > 100:
+                    clean_title = clean_title[:100] + "…"
+                # High score boost: official AI company announcements are top priority
+                bonus = 8 if not is_rt else 4
+                items.append({
+                    "title":  clean_title,
+                    "link":   link.replace("nitter.net", "x.com"),
+                    "source": f"X @{account_name}",
+                    "score":  viral_score(combined_text, bonus),
+                    "text":   desc_clean[:300],
+                })
+        except Exception as e:
+            print(f"[WARN] X @{account_name} fetch failed: {e}", file=sys.stderr)
+    return items
+
+
+def fetch_x_trending_ai() -> list[dict]:
+    """Fetch trending AI content from high-engagement AI influencer accounts on X.
+    These accounts curate and amplify the most viral AI news daily.
+    """
+    INFLUENCERS = [
+        ("TheRundownAI",   "https://nitter.net/TheRundownAI/rss"),
+        ("bindureddy",     "https://nitter.net/bindureddy/rss"),
+        ("slow_developer", "https://nitter.net/slow_developer/rss"),
+        ("TheAIGRID",      "https://nitter.net/TheAIGRID/rss"),
+        ("rowancheung",    "https://nitter.net/rowancheung/rss"),
+    ]
+    items = []
+    for account_name, feed_url in INFLUENCERS:
+        try:
+            data = fetch_url(feed_url)
+            root = ET.fromstring(data)
+            for item_el in root.iter("item"):
+                title = (item_el.findtext("title") or "").strip()
+                link  = (item_el.findtext("link") or "").strip()
+                pub   = item_el.findtext("pubDate") or ""
+                desc  = (item_el.findtext("description") or "").strip()
+                desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
+                pub_dt = parse_date_rss(pub)
+                if pub_dt and pub_dt < CUTOFF:
+                    continue
+                combined = (title + " " + desc_clean).lower()
+                # Must be AI/tech related
+                if not is_ai_related(combined):
+                    continue
+                if is_too_technical(title + " " + desc_clean):
+                    continue
+                # Skip very short posts (likely replies or one-liners)
+                if len(desc_clean) < 40:
+                    continue
+                clean_title = desc_clean[:120].split("\n")[0]
+                if len(clean_title) > 100:
+                    clean_title = clean_title[:100] + "…"
+                # These are curated viral posts — give a solid score boost
+                items.append({
+                    "title":  clean_title,
+                    "link":   link.replace("nitter.net", "x.com"),
+                    "source": f"X @{account_name}",
+                    "score":  viral_score(combined, 5),
+                    "text":   desc_clean[:300],
+                })
+        except Exception as e:
+            print(f"[WARN] X @{account_name} fetch failed: {e}", file=sys.stderr)
+    return items
+
+
+def fetch_ai_company_blogs() -> list[dict]:
+    """Fetch official blog posts from OpenAI and Google DeepMind RSS."""
+    BLOGS = [
+        ("OpenAI Blog",    "https://openai.com/blog/rss.xml"),
+        ("Google AI Blog", "https://blog.google/technology/ai/rss/"),
+    ]
+    items = []
+    for blog_name, feed_url in BLOGS:
+        try:
+            data = fetch_url(feed_url)
+            root = ET.fromstring(data)
+            for item_el in root.iter("item"):
+                title = (item_el.findtext("title") or "").strip()
+                link  = (item_el.findtext("link") or "").strip()
+                pub   = item_el.findtext("pubDate") or ""
+                desc  = (item_el.findtext("description") or "").strip()
+                desc = re.sub(r"<[^>]+>", "", desc).strip()
+                pub_dt = parse_date_rss(pub)
+                if pub_dt and pub_dt < CUTOFF:
+                    continue
+                if is_too_technical(title):
+                    continue
+                # Official blog posts get a high score boost
+                items.append({
+                    "title":  title,
+                    "link":   link,
+                    "source": blog_name,
+                    "score":  viral_score(title + " " + desc, 6),
+                    "text":   desc[:300],
+                })
+        except Exception as e:
+            print(f"[WARN] {blog_name} fetch failed: {e}", file=sys.stderr)
+    return items
+
+
+def fetch_venturebeat() -> list[dict]:
+    """VentureBeat AI RSS feed."""
+    items = []
+    try:
+        data = fetch_url("https://venturebeat.com/category/ai/feed")
+        root = ET.fromstring(data)
+        for item in root.iter("item"):
+            title = (item.findtext("title") or "").strip()
+            link  = (item.findtext("link")  or "").strip()
+            pub   = item.findtext("pubDate") or ""
+            desc  = (item.findtext("description") or "").strip()
+            # Strip HTML tags
+            desc = re.sub(r"<[^>]+>", "", desc).strip()
+            pub_dt = parse_date_rss(pub)
+            if pub_dt and pub_dt < CUTOFF:
+                continue
+            if is_too_technical(title):
+                continue
+            items.append({
+                "title":  title,
+                "link":   link,
+                "source": "VentureBeat",
+                "score":  viral_score(title + " " + desc, 1),  # slight boost
+                "text":   desc[:300],
+            })
+    except Exception as e:
+        print(f"[WARN] VentureBeat fetch failed: {e}", file=sys.stderr)
+    return items
+
+
 # ---------------------------------------------------------------------------
 # Deduplication
 # ---------------------------------------------------------------------------
@@ -291,67 +504,100 @@ def deduplicate(items: list[dict]) -> list[dict]:
 # Insight generator
 # ---------------------------------------------------------------------------
 
-INSIGHT_TEMPLATES = {
-    # 职业/就业冲击
-    "job":        "就在刚刚，AI 抢饭碗的新闻在硅谷引起了轰动——{title}。打工人注意了，你的工作还安全吗？",
-    "replace":    "就在刚刚，AI 取代人类的事又发生了——{title}。如果连这个都能被替代，我们还能靠什么赚钱？",
-    "layoff":     "硅谷震动！AI 引发的裁员潮正式开始——{title}。AI 时代，第一批失业的往往是这类人。",
-    "fired":      "刚刚曝光！这不是段子，是真实发生的事——{title}。你所在的行业还有多久？",
-    # 钱/投资/商业机会
-    "funding":    "就在刚刚，硅谷又一笔巨额 AI 投资引发轰动——{title}。读懂这笔钱的方向，普通人也能找到下一个风口。",
-    "billion":    "全球 AI 圈都炸了！又是百亿美元级别的大动作——{title}。AI 的钱都流向哪了？跟着钱走准没错。",
-    "ipo":        "重磅！AI 独角兽要上市了，硅谷沸腾——{title}。这波红利，普通人怎么蹭到？",
-    "invest":     "就在刚刚，聪明钱已经下场了——{title}。不懂 AI 投资逻辑，可能真的会错过这个时代。",
-    "revenue":    "硅谷震惊！AI 开始真正赚钱了——{title}。这才是这波浪潮最值得关注的信号。",
-    # 隐私/安全/信任危机
-    "ad":         "刚刚曝光！这条新闻在硅谷引发轩然大波——{title}。你以为在用工具，工具其实在用你做广告。",
-    "inject":     "全网炸了！这已经不是 bug，是赤裸裸的商业操控——{title}。用 AI 工具的人都该看看。",
-    "hack":       "就在刚刚，一场 AI 安全事件在硅谷引起了轰动——{title}。你的数据安全吗？",
-    "breach":     "重磅！又泄露了，这条消息让整个 AI 圈不安——{title}。用 AI 产品之前，你知道它在收集什么吗？",
-    "privacy":    "刚刚曝光！隐私正在消失，这件事让硅谷沉默了——{title}。在你不知情的情况下，AI 已经看了多少？",
-    "deepfake":   "就在刚刚，一条 AI 造假新闻在全球引发恐慌——{title}。你看到的可能是假的，普通人该怎么辨别？",
-    # 监管/法律/政府
-    "ban":        "重磅！政府出手了，这条新闻在硅谷引起了轰动——{title}。这次的监管，会直接影响你能用哪些 AI 产品。",
-    "lawsuit":    "就在刚刚，一场针对 AI 的世纪官司正式开打——{title}。这场法律战的结果，将决定 AI 能走多远。",
-    "regulation": "硅谷震动！AI 监管时代正式开启——{title}。规则变了，机会和风险都在重新分配。",
-    "illegal":    "刚刚曝光！有人踩红线了，AI 圈炸了——{title}。AI 的边界在哪，这件事给了一个清晰的答案。",
-    # 免费/工具/生产力
-    "free":       "就在刚刚，一个免费 AI 工具的发布在硅谷引发轰动——{title}。以前要花大价钱的能力，现在人人都能用。",
-    "launch":     "重磅！新 AI 工具刚刚发布，全球用户疯狂涌入——{title}。先用上的人，效率可能直接碾压同行。",
-    "release":    "就在刚刚发布！这条消息让 AI 圈沸腾了——{title}。这个工具值不值得上手，你一定要看。",
-    # 能力突破/超越人类
-    "beats":      "硅谷震惊！AI 再次打败人类，这次的消息在全球引发轰动——{title}。这次被超越的，是很多人引以为傲的技能。",
-    "surpass":    "就在刚刚，AI 超越人类的新纪录让全球哑口无言——{title}。关键是你怎么利用这个工具。",
-    "breakthrough": "重磅！真正的 AI 突破来了，硅谷炸了——{title}。这一次，可能不是炒作。",
-    "first":      "历史性时刻！这条新闻在硅谷引起了轰动——{title}。第一个吃螃蟹的往往定义整个赛道。",
-    # 创意/内容/媒体
-    "artist":     "就在刚刚，AI 抢创作者饭碗的新闻在全网炸了——{title}。你的作品还值钱吗？",
-    "music":      "硅谷震动！AI 作曲、AI 唱歌的新进展引发轰动——{title}。音乐人的未来在哪里？",
-    "video":      "就在刚刚，AI 生成视频的能力再次让全球惊掉下巴——{title}。做内容的人，压力越来越大了。",
-    "image":      "重磅！AI 生图的新突破在硅谷引发轰动——{title}。一键生图时代，谁还在付钱请设计师？",
-    # 中美竞争
-    "china":      "就在刚刚，中美 AI 战争升级的消息在硅谷引起了轰动——{title}。这场科技博弈的输赢，会影响每个普通人的生活。",
-    "chinese":    "硅谷紧张了！中国 AI 的大动作让全球沸腾——{title}。这次的进展，连硅谷都开始害怕了。",
-    # OpenAI/大厂动态
-    "openai":     "就在刚刚，OpenAI 的新动作在硅谷引起了轰动——{title}。这家公司每次出手，都在重新定义 AI 的边界。",
-    "google":     "重磅！谷歌出手了，这条消息让整个 AI 圈炸了——{title}。科技巨头的每一步棋，都在提前布局你的未来。",
-    "microsoft":  "就在刚刚，微软的 AI 新动作在硅谷引发轰动——{title}。这家公司把 AI 嵌进每个产品，没人能绕开它。",
-    "meta":       "硅谷震动！Meta 的 AI 野心再次曝光，全网炸了——{title}。扎克伯格到底在下什么棋？",
-    "nvidia":     "重磅！英伟达的新动作让 AI 圈沸腾——{title}。AI 时代，卖铲子的比挖矿的更赚钱。",
-    "apple":      "就在刚刚，苹果 AI 的大动作在硅谷引起了轰动——{title}。一旦苹果认真做 AI，游戏规则就变了。",
-}
+# ---------------------------------------------------------------------------
+# Insight generator — extract core content + compelling hook for Chinese audience
+# ---------------------------------------------------------------------------
 
-DEFAULT_INSIGHT = "就在刚刚，一条 AI 新闻在硅谷引起了轰动——这件事正在以你看不见的速度改变这个世界，值得每个普通人花 30 秒了解。"
+# Category detection: (category_name, keywords, hook_prefix, hook_suffix)
+INSIGHT_CATEGORIES = [
+    # 大厂动态 — 优先匹配公司名（最常见、最吸引眼球）
+    ("bigtech", ["openai", "google", "microsoft", "meta ", "apple", "nvidia", "tesla", "anthropic", "amazon", "sam altman", "zuckerberg", "elon"],
+     "科技巨头刚刚放了个大招！",
+     "巨头的每一步棋，都在提前布局你的未来。"),
+    # 中美竞争
+    ("china", ["china", "chinese", "baidu", "alibaba", "tencent", "bytedance", "deepseek", "qwen", "huawei"],
+     "中美AI大战白热化！",
+     "这场科技博弈的结果，影响每一个普通人。"),
+    # 职业/就业冲击
+    ("job", ["replace", "job", "fired", "layoff", "hire", "worker", "employee", "workforce", "unemployment"],
+     "AI正在颠覆职场！",
+     "你的工作还安全吗？这不是危言耸听。"),
+    # 隐私/安全/造假
+    ("safety", ["hack", "breach", "leak", "privacy", "deepfake", "fake", "scam", "fraud", "spy", "surveillance"],
+     "细思极恐！",
+     "你的隐私可能早就不存在了。"),
+    # 监管/法律
+    ("regulation", ["ban", "lawsuit", "sue", "regulation", "illegal", "law", "court", "government", "policy"],
+     "政府终于出手了！",
+     "这次的监管会直接影响你能用哪些AI。"),
+    # 钱/投资/融资
+    ("money", ["funding", "billion", "million", "ipo", "invest", "revenue", "profit", "valuation", "acquisition", "acquire"],
+     "硅谷的钱正在疯狂涌入AI！",
+     "跟着聪明钱走，普通人也能看懂下一个风口。"),
+    # 能力突破
+    ("breakthrough", ["beats", "surpass", "breakthrough", "record", "outperform", "fastest", "revolutionary", "smarter"],
+     "AI又突破人类极限了！",
+     "这一次，可能真的不一样。"),
+    # 创意/内容
+    ("creative", ["artist", "music", "video", "image", "movie", "creative", "writer", "art", "design", "generate"],
+     "创作者危机！",
+     "AI正在重新定义什么叫'原创'。"),
+    # 机器人/硬件
+    ("robot", ["robot", "humanoid", "autonomous", "self-driving", "hardware", "chip"],
+     "AI走出屏幕了！",
+     "机器人时代比你想象的来得更快。"),
+    # 免费/工具/发布 — 放最后（launch/release 太泛，容易误匹配）
+    ("tool", ["free", "launch", "release", "app", "tool", "update", "feature", "available"],
+     "新工具来了！",
+     "先用上的人，效率直接碾压同行。"),
+]
+
+
+def _extract_core(text: str, max_len: int = 120) -> str:
+    """Extract the most informative sentence from description text."""
+    if not text:
+        return ""
+    # Clean up whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    # Split into sentences
+    sentences = re.split(r"(?<=[.!?。！？])\s+", text)
+    # Filter out very short or boilerplate sentences
+    useful = [s for s in sentences if len(s) > 20 and not s.lower().startswith(("subscribe", "read more", "click", "follow"))]
+    if not useful:
+        useful = sentences
+    # Pick the first substantive sentence, trim to max_len
+    best = useful[0] if useful else text
+    if len(best) > max_len:
+        best = best[:max_len].rsplit(" ", 1)[0] + "…"
+    return best
 
 
 def generate_insight(item: dict) -> str:
-    t = item["title"].lower()
-    for kw, template in INSIGHT_TEMPLATES.items():
-        if kw in t:
-            # Trim title for readability
-            short_title = item["title"][:80] + ("…" if len(item["title"]) > 80 else "")
-            return template.format(title=short_title)
-    return DEFAULT_INSIGHT
+    """Generate a compelling Chinese insight that includes the core news content."""
+    title = item["title"]
+    desc = item.get("text", "")
+    combined = (title + " " + desc).lower()
+
+    # Detect category
+    hook_prefix = "刚刚，一条AI新闻在硅谷炸了！"
+    hook_suffix = "这件事值得每个人花30秒了解。"
+    for _cat, keywords, prefix, suffix in INSIGHT_CATEGORIES:
+        hits = sum(1 for kw in keywords if kw in combined)
+        if hits >= 1:
+            hook_prefix = prefix
+            hook_suffix = suffix
+            break
+
+    # Extract core content from description for the middle section
+    core = _extract_core(desc)
+    short_title = title[:80] + ("…" if len(title) > 80 else "")
+
+    if core and core.lower() != title.lower()[:len(core)].lower():
+        # We have meaningful description content — use it
+        return f"{hook_prefix}{short_title}。{core}。{hook_suffix}"
+    else:
+        # No description or same as title — use title only
+        return f"{hook_prefix}{short_title}。{hook_suffix}"
 
 
 # ---------------------------------------------------------------------------
@@ -362,6 +608,21 @@ def main():
     print("Fetching AI trends from the last 24 hours…")
 
     all_items: list[dict] = []
+
+    # Priority 0 — Official AI company X accounts (highest priority)
+    x_official = fetch_ai_company_x()
+    print(f"  X (AI companies): {len(x_official)} posts")
+    all_items.extend(x_official)
+
+    # Priority 0.5 — Trending AI posts from high-engagement X influencers
+    x_trending = fetch_x_trending_ai()
+    print(f"  X (AI trending):  {len(x_trending)} posts")
+    all_items.extend(x_trending)
+
+    # Priority 0.5 — Official AI company blogs
+    blogs = fetch_ai_company_blogs()
+    print(f"  AI company blogs: {len(blogs)} posts")
+    all_items.extend(blogs)
 
     # Priority 1 — TechCrunch
     tc = fetch_techcrunch()
@@ -381,7 +642,17 @@ def main():
     all_items.extend(r_ai)
     all_items.extend(r_ml)
 
-    # Priority 4 — Product Hunt
+    # Priority 4 — The Verge AI
+    verge = fetch_theverge()
+    print(f"  The Verge:    {len(verge)} AI items")
+    all_items.extend(verge)
+
+    # Priority 5 — VentureBeat AI
+    vb = fetch_venturebeat()
+    print(f"  VentureBeat:  {len(vb)} AI items")
+    all_items.extend(vb)
+
+    # Priority 6 — Product Hunt
     ph = fetch_producthunt()
     print(f"  Product Hunt: {len(ph)} AI items")
     all_items.extend(ph)
