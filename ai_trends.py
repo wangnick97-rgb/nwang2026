@@ -194,71 +194,6 @@ def fetch_hackernews() -> list[dict]:
     return items
 
 
-def fetch_reddit_sub(subreddit: str) -> list[dict]:
-    """Reddit top posts (day) for a subreddit."""
-    items = []
-    url = f"https://www.reddit.com/r/{subreddit}/top/.json?t=day&limit=10"
-    try:
-        data = fetch_url(url, extra_headers={"Accept": "application/json"})
-        payload = json.loads(data)
-        posts = payload.get("data", {}).get("children", [])
-        for post in posts:
-            d = post.get("data", {})
-            title     = (d.get("title") or "").strip()
-            permalink = d.get("permalink") or ""
-            link      = f"https://www.reddit.com{permalink}"
-            score     = d.get("score", 0)
-            comments  = d.get("num_comments", 0)
-            created   = d.get("created_utc", 0)
-            url_dest  = d.get("url") or link
-            pub_dt    = datetime.fromtimestamp(created, tz=timezone.utc) if created else None
-            if pub_dt and pub_dt < CUTOFF:
-                continue
-            if not is_ai_related(title):
-                continue
-            if is_too_technical(title):
-                continue
-            bonus = min((score // 500) + (comments // 100), 10)
-            items.append({
-                "title":  title,
-                "link":   url_dest if url_dest.startswith("http") else link,
-                "source": f"Reddit r/{subreddit}",
-                "score":  viral_score(title, bonus),
-                "text":   f"{score} upvotes · {comments} comments",
-            })
-    except Exception as e:
-        print(f"[WARN] Reddit r/{subreddit} fetch failed: {e}", file=sys.stderr)
-    return items
-
-
-def fetch_producthunt() -> list[dict]:
-    """Product Hunt RSS feed — AI launches."""
-    items = []
-    try:
-        data = fetch_url("https://www.producthunt.com/feed")
-        root = ET.fromstring(data)
-        for item in root.iter("item"):
-            title = (item.findtext("title") or "").strip()
-            link  = (item.findtext("link")  or "").strip()
-            pub   = item.findtext("pubDate") or ""
-            desc  = (item.findtext("description") or "").strip()
-            pub_dt = parse_date_rss(pub)
-            if pub_dt and pub_dt < CUTOFF:
-                continue
-            if not is_ai_related(title + " " + desc):
-                continue
-            if is_too_technical(title):
-                continue
-            items.append({
-                "title":  title,
-                "link":   link,
-                "source": "Product Hunt",
-                "score":  viral_score(title + " " + desc),
-                "text":   desc[:200],
-            })
-    except Exception as e:
-        print(f"[WARN] Product Hunt fetch failed: {e}", file=sys.stderr)
-    return items
 
 
 def fetch_theverge() -> list[dict]:
@@ -634,28 +569,15 @@ def main():
     print(f"  Hacker News:  {len(hn)} AI items")
     all_items.extend(hn)
 
-    # Priority 3 — Reddit
-    r_ai = fetch_reddit_sub("artificial")
-    r_ml = fetch_reddit_sub("MachineLearning")
-    print(f"  Reddit r/artificial:      {len(r_ai)} items")
-    print(f"  Reddit r/MachineLearning: {len(r_ml)} items")
-    all_items.extend(r_ai)
-    all_items.extend(r_ml)
-
-    # Priority 4 — The Verge AI
+    # Priority 3 — The Verge AI
     verge = fetch_theverge()
     print(f"  The Verge:    {len(verge)} AI items")
     all_items.extend(verge)
 
-    # Priority 5 — VentureBeat AI
+    # Priority 4 — VentureBeat AI
     vb = fetch_venturebeat()
     print(f"  VentureBeat:  {len(vb)} AI items")
     all_items.extend(vb)
-
-    # Priority 6 — Product Hunt
-    ph = fetch_producthunt()
-    print(f"  Product Hunt: {len(ph)} AI items")
-    all_items.extend(ph)
 
     if not all_items:
         print("No items fetched. Check your network connection.", file=sys.stderr)

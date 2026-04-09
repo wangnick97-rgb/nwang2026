@@ -30,47 +30,6 @@ HEADERS = {
 }
 
 # ---------------------------------------------------------------------------
-# Reddit scraper
-# ---------------------------------------------------------------------------
-
-MINDSET_SUBREDDITS = ["selfimprovement", "Entrepreneur", "productivity"]
-
-
-def fetch_reddit_mindset() -> list[dict]:
-    items = []
-    for sub in MINDSET_SUBREDDITS:
-        url = f"https://www.reddit.com/r/{sub}/top/.json?t=day&limit=10"
-        try:
-            req = urllib.request.Request(
-                url, headers={**HEADERS, "Accept": "application/json"}
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                payload = json.loads(resp.read())
-            posts = payload.get("data", {}).get("children", [])
-            for post in posts:
-                d = post.get("data", {})
-                title    = (d.get("title") or "").strip()
-                score    = d.get("score", 0)
-                comments = d.get("num_comments", 0)
-                selftext = (d.get("selftext") or "")[:400]
-                if score < 30:
-                    continue
-                items.append({
-                    "title":    title,
-                    "text":     selftext,
-                    "score":    score,
-                    "comments": comments,
-                    "source":   f"r/{sub}",
-                })
-        except Exception as e:
-            print(f"[WARN] Reddit r/{sub} failed: {e}", file=sys.stderr)
-
-    # Sort by engagement: upvotes + comments weighted
-    items.sort(key=lambda x: x["score"] + x["comments"] * 2, reverse=True)
-    return items
-
-
-# ---------------------------------------------------------------------------
 # X (Twitter) mindset / entrepreneur influencers via Nitter RSS
 # ---------------------------------------------------------------------------
 
@@ -311,15 +270,9 @@ def send_to_zapier(script: str):
 # ---------------------------------------------------------------------------
 
 def main():
-    print("Fetching trending mindset posts...")
-    reddit_posts = fetch_reddit_mindset()
-    print(f"  Reddit: {len(reddit_posts)} posts across {MINDSET_SUBREDDITS}")
-    x_posts = fetch_x_mindset()
-    print(f"  X:      {len(x_posts)} posts from influencer accounts")
-    # Merge and sort by engagement score
-    posts = reddit_posts + x_posts
-    posts.sort(key=lambda x: x["score"] + x["comments"] * 2, reverse=True)
-    print(f"  Total:  {len(posts)} mindset posts")
+    print("Fetching trending mindset posts from X...")
+    posts = fetch_x_mindset()
+    print(f"  Found {len(posts)} posts from influencer accounts")
 
     print("Loading today's top AI trend...")
     ai_trend = load_top_ai_trend()
